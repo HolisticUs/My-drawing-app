@@ -96,23 +96,29 @@ def load_image():
 
 # define a color_grid
 colors_list = []
-for r in range(0, 255, 51):
-    for g in range(0, 255, 51):
-        for b in range(0, 255, 51):
+start = 0
+stop = 256
+step = 51
+for r in range(start, stop, step):
+    for g in range(start, stop, step):
+        for b in range(start, stop, step):
             colors_list.append((r,g,b))
 
 grid_coords = []
 x = 0
 y = 0
+column_index = 1
 for i in range(1, len(colors_list) + 1):
     grid_coords.append((x,y))
     x += 10
-    if x > math.sqrt(len(colors_list))*10:
+    column_index += 1
+    if column_index > 18:
         x = 0
         y += 10
+        column_index = 1
 
-grid_x_offset = screen_width - 150
-grid_y_offset = 50
+grid_x_offset = screen_width - 240
+grid_y_offset = 20
 color_grid = []
 for i in range(len(colors_list)):
     button = Button(grid_x_offset + grid_coords[i][0], grid_y_offset + grid_coords[i][1], 10, 10, None, 0, colors_list[i])

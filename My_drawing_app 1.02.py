@@ -11,7 +11,7 @@ pygame.init()
 pygame.font.init()
 my_font = pygame.font.SysFont('Comic Sans MS', 30)
 #set up display
-screen_width = 800
+screen_width = 900
 iw = screen_width / 10 
 screen_width_in_game_unit = screen_width / iw
 screen_height = 600
@@ -30,6 +30,8 @@ button_clicked = False
 draw_tile_ready = False
 dict_of_tiles = {}
 color_picked = (255,0,255)
+draw_mode = None
+
 timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
 
 # Initialize Tkinter
@@ -69,11 +71,14 @@ class Button:
      def is_over(self, pos):
           return pygame.Rect(self.x-(self.width/20), self.y-(self.height/20), self.width*1.1, self.height*1.1).collidepoint(pos)
      
-draw_tile_button = Button(screen_width-150, screen_height-70, 120, 50, 'Draw')
+draw_tile_button = Button(screen_width-150, screen_height-70, 120, 50, 'DOTS')
+scribble_button = Button(screen_width-290, screen_height-140, 120, 50, 'SCRIBBLE')
+erase_button = Button(screen_width-290, screen_height-70, 120, 50, 'ERASER')
+
+
 red_color_button = Button(screen_width-150, screen_height-140, 120, 50, 'RED')
 green_color_button = Button(screen_width-150, screen_height-210, 120, 50, 'GREEN')
 blue_color_button = Button(screen_width-150, screen_height-280, 120, 50, 'BLUE')
-erase_button = Button(screen_width-290, screen_height-70, 120, 50, 'ERASER')
 yellow_color_button = Button(screen_width-150, screen_height-350, 120, 50, 'YELLOW')
 brown_color_button = Button(screen_width-150, screen_height-420, 120, 50, 'BROWN')
 
@@ -96,23 +101,29 @@ def load_image():
 
 # define a color_grid
 colors_list = []
-for r in range(0, 255, 51):
-    for g in range(0, 255, 51):
-        for b in range(0, 255, 51):
+start = 0
+stop = 256
+step = 51
+for r in range(start, stop, step):
+    for g in range(start, stop, step):
+        for b in range(start, stop, step):
             colors_list.append((r,g,b))
 
 grid_coords = []
 x = 0
 y = 0
+column_index = 1
 for i in range(1, len(colors_list) + 1):
     grid_coords.append((x,y))
     x += 10
-    if x > math.sqrt(len(colors_list))*10:
+    column_index += 1
+    if column_index > 36:
         x = 0
         y += 10
+        column_index = 1
 
-grid_x_offset = screen_width - 150
-grid_y_offset = 50
+grid_x_offset = screen_width - 370
+grid_y_offset = 20
 color_grid = []
 for i in range(len(colors_list)):
     button = Button(grid_x_offset + grid_coords[i][0], grid_y_offset + grid_coords[i][1], 10, 10, None, 0, colors_list[i])
@@ -123,18 +134,19 @@ def draw_color_grid():
         button.draw()
 
 def art_maker():
-    global button_clicked, draw_tile_ready, dict_of_tiles, color_picked, timestamp
-
+    global button_clicked, draw_tile_ready, dict_of_tiles, color_picked, timestamp, draw_mode
     pygame.draw.line(screen, (255,255,255), (pad_left_edge, pad_top_edge), (pad_right_edge, pad_top_edge), 1)
     pygame.draw.line(screen, (255,255,255), (pad_right_edge, pad_top_edge), (pad_right_edge, pad_bottom_edge), 1)
     pygame.draw.line(screen, (255,255,255), (pad_right_edge, pad_bottom_edge), (pad_left_edge, pad_bottom_edge), 1)
     pygame.draw.line(screen, (255,255,255), (pad_left_edge, pad_bottom_edge), (pad_left_edge, pad_top_edge), 1)
 
     draw_tile_button.draw()
+    scribble_button.draw()
+    erase_button.draw()
+
     red_color_button.draw()
     green_color_button.draw()
     blue_color_button.draw()
-    erase_button.draw()
     yellow_color_button.draw()
     brown_color_button.draw()
     
@@ -155,9 +167,31 @@ def art_maker():
     mouse_pressed = pygame.mouse.get_pressed()
     if mouse_pressed[0] and not button_clicked:
         if draw_tile_button.is_over(pygame.mouse.get_pos()):
-            draw_tile_ready = not draw_tile_ready
-            print('draw_tile_ready functionality', draw_tile_ready)
+            if draw_mode != 'dot':
+                draw_mode = 'dot'
+            elif draw_mode == 'dot':
+                draw_mode = None
             button_clicked = True
+            print('draw_mode =', draw_mode)
+
+        elif scribble_button.is_over(pygame.mouse.get_pos()):
+            if draw_mode != 'scribble':
+                draw_mode = 'scribble'
+            elif draw_mode == 'scribble':
+                draw_mode = None
+            button_clicked = True
+            print('draw_mode =', draw_mode)
+
+        elif erase_button.is_over(pygame.mouse.get_pos()):
+            if draw_mode != 'erase':
+                draw_mode = 'erase'
+            elif draw_mode == 'erase':
+                draw_mode = None
+            button_clicked = True
+            print('draw_mode =', draw_mode)
+        
+            
+
         if red_color_button.is_over(pygame.mouse.get_pos()):
             color_picked = (255,0,0)
             print("You selected Red")
@@ -169,11 +203,13 @@ def art_maker():
         if blue_color_button.is_over(pygame.mouse.get_pos()):
             color_picked = (0,0,255)
             print("You selected Blue")
-            button_clicked = True        
+            button_clicked = True  
+        '''      
         if erase_button.is_over(pygame.mouse.get_pos()):
             color_picked = (0,0,0)
             print("You selected 'Eraser'")
             button_clicked = True    
+        '''
         if yellow_color_button.is_over(pygame.mouse.get_pos()):
             color_picked = (255,255,0)
             print("You selected 'Yellow'")
@@ -202,7 +238,7 @@ def art_maker():
             load_image()
             button_clicked = True   
 
-    if draw_tile_ready:
+    if draw_mode == 'dot':
         if mouse_pressed[0] and not button_clicked:
              mouse_x, mouse_y = pygame.mouse.get_pos()
              if pad_left_edge < mouse_x < pad_right_edge and pad_top_edge < mouse_y < pad_bottom_edge:
@@ -211,6 +247,24 @@ def art_maker():
                 dict_of_tiles[(round_x, round_y)] = color_picked
                 button_clicked = True
                 print(dict_of_tiles)
+    elif draw_mode == 'scribble':
+        if mouse_pressed[0]:
+             mouse_x, mouse_y = pygame.mouse.get_pos()
+             if pad_left_edge < mouse_x < pad_right_edge and pad_top_edge < mouse_y < pad_bottom_edge:
+                round_x = (mouse_x // 10) * 10
+                round_y = (mouse_y // 10) * 10
+                dict_of_tiles[(round_x, round_y)] = color_picked
+                button_clicked = True
+                print(dict_of_tiles)
+    elif draw_mode == 'erase':
+        if mouse_pressed[0]:
+            mouse_x, mouse_y = pygame.mouse.get_pos()
+            if pad_left_edge < mouse_x < pad_right_edge and pad_top_edge < mouse_y < pad_bottom_edge:
+                round_x = (mouse_x // 10) * 10
+                round_y = (mouse_y // 10) * 10
+                if (round_x, round_y) in dict_of_tiles:
+                    del dict_of_tiles[(round_x, round_y)]
+                    print(dict_of_tiles)
 
 
     if not mouse_pressed[0]:
