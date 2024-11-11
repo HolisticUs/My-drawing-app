@@ -73,6 +73,7 @@ class Button:
      
 draw_tile_button = Button(screen_width-150, screen_height-70, 120, 50, 'DOTS')
 scribble_button = Button(screen_width-290, screen_height-140, 120, 50, 'SCRIBBLE')
+fill_button = Button(screen_width-290, screen_height-210, 120, 50, 'FILL')
 erase_button = Button(screen_width-290, screen_height-70, 120, 50, 'ERASER')
 
 
@@ -133,6 +134,32 @@ def draw_color_grid():
     for button in color_grid:
         button.draw()
 
+def find_all_tiles(tiles_to_replace, dict_of_tiles, color_to_replace, new_color, tiles_checked=[]):
+    tile_added = False
+    for tile in tiles_to_replace:
+        # check for each of the four adjacent tiles:
+        top_tile = (tile[0], tile[1] - 10)
+        bottom_tile = (tile[0], tile[1] + 10)
+        left_tile = (tile[0] - 10, tile[1])
+        right_tile = (tile[0] + 10, tile[1])
+        adj_tiles = [top_tile, bottom_tile, left_tile, right_tile]
+        for adj_tile in adj_tiles:
+            if adj_tile in tiles_checked:
+                continue
+            elif adj_tile in dict_of_tiles and dict_of_tiles[adj_tile] == color_to_replace:
+                tiles_to_replace.append(adj_tile)
+                tile_added = True
+            tiles_checked.append(adj_tile)
+        
+        # Recurse if an adjacent tile was found with the same color
+        if tile_added == True:
+            find_all_tiles(tiles_to_replace, dict_of_tiles, color_to_replace, new_color, tiles_checked)
+        else:
+            # Base case, no new tiles found, change the color
+            for tile in tiles_to_replace:
+                dict_of_tiles[tile] = new_color
+
+                
 def art_maker():
     global button_clicked, draw_tile_ready, dict_of_tiles, color_picked, timestamp, draw_mode
     pygame.draw.line(screen, (255,255,255), (pad_left_edge, pad_top_edge), (pad_right_edge, pad_top_edge), 1)
@@ -142,6 +169,7 @@ def art_maker():
 
     draw_tile_button.draw()
     scribble_button.draw()
+    fill_button.draw()
     erase_button.draw()
 
     red_color_button.draw()
@@ -186,6 +214,14 @@ def art_maker():
             if draw_mode != 'erase':
                 draw_mode = 'erase'
             elif draw_mode == 'erase':
+                draw_mode = None
+            button_clicked = True
+            print('draw_mode =', draw_mode)
+        
+        elif fill_button.is_over(pygame.mouse.get_pos()):
+            if draw_mode != 'fill':
+                draw_mode = 'fill'
+            elif draw_mode == 'fill':
                 draw_mode = None
             button_clicked = True
             print('draw_mode =', draw_mode)
@@ -265,6 +301,17 @@ def art_maker():
                 if (round_x, round_y) in dict_of_tiles:
                     del dict_of_tiles[(round_x, round_y)]
                     print(dict_of_tiles)
+    elif draw_mode == 'fill' and mouse_pressed[0] and not button_clicked:
+        replacement_color = color_picked
+        mouse_x, mouse_y = pygame.mouse.get_pos()
+        if pad_left_edge < mouse_x < pad_right_edge and pad_top_edge < mouse_y < pad_bottom_edge:
+            round_x = (mouse_x // 10) * 10
+            round_y = (mouse_y // 10) * 10
+            if (round_x, round_y) not in dict_of_tiles:
+                dict_of_tiles[(round_x, round_y)] = None
+            tiles_to_replace = [(round_x, round_y)]
+            find_all_tiles(tiles_to_replace, dict_of_tiles, dict_of_tiles[(round_x, round_y)], replacement_color, [(round_x, round_y)])
+
 
 
     if not mouse_pressed[0]:
