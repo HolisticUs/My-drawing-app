@@ -39,7 +39,6 @@ timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
 root = tk.Tk()
 root.withdraw() # Hides the main tkinter window
 
-loaded_image = None
 
 class Button:
      def __init__(self, x, y, width=100, height=70, text='Untitled Button', text_size=30, color=(255, 0, 0), text_color=(255,255,255), boarder1=(255,255,255), boarder2=(255,0,0)):
@@ -76,6 +75,7 @@ draw_tile_button = Button(screen_width-150, screen_height-70, 120, 50, 'DOTS')
 scribble_button = Button(screen_width-290, screen_height-140, 120, 50, 'SCRIBBLE')
 fill_button = Button(screen_width-290, screen_height-210, 120, 50, 'FILL')
 erase_button = Button(screen_width-290, screen_height-70, 120, 50, 'ERASER')
+color_match_button = Button(screen_width-290, screen_height-280, 120, 50, 'MATCH')
 
 
 red_color_button = Button(screen_width-150, screen_height-140, 120, 50, 'RED')
@@ -205,6 +205,7 @@ def art_maker():
     scribble_button.draw()
     fill_button.draw()
     erase_button.draw()
+    color_match_button.draw()
 
     red_color_button.draw()
     green_color_button.draw()
@@ -216,11 +217,17 @@ def art_maker():
     load_button.draw()
 
 
+    # Current color display
+    color_font =pygame.font.SysFont('Comic Sans MS', 20)
+    current_color_text = color_font.render('Current color: ', True, (255,255,255))
+    current_color_text_rect = current_color_text.get_rect(center=(screen_width/2 + 130, screen_height/4 - 50))
+    screen.blit(current_color_text, current_color_text_rect)
+    current_color_rect = pygame.Rect(screen_width/2 + 200, screen_height/4 - 55, 15, 15)
+    pygame.draw.rect(screen, color_picked, current_color_rect)
+
+
+
     filename = f"screenshot_from_drawing_pad_{timestamp}.zip"
-
-
-    if loaded_image:
-        screen.blit(loaded_image, (pad_left_edge, pad_top_edge))
 
     for tile, color in dict_of_tiles.items():
          tile_rect = pygame.Rect(tile[0], tile[1], 10, 10) 
@@ -259,6 +266,11 @@ def art_maker():
                 draw_mode = 'fill'
             elif draw_mode == 'fill':
                 draw_mode = None
+            button_clicked = True
+            print('draw_mode =', draw_mode)
+
+        elif color_match_button.is_over(pygame.mouse.get_pos()):
+            draw_mode = 'match'
             button_clicked = True
             print('draw_mode =', draw_mode)
         
@@ -340,8 +352,14 @@ def art_maker():
                 dict_of_tiles[(round_x, round_y)] = None
             tiles_to_replace = [(round_x, round_y)]
             find_all_tiles(tiles_to_replace, dict_of_tiles, dict_of_tiles[(round_x, round_y)], replacement_color, tiles_checked=[])
-                
-
+    elif draw_mode == 'match' and mouse_pressed[0] and not button_clicked:
+        button_clicked = True
+        mouse_x, mouse_y = pygame.mouse.get_pos()
+        if pad_left_edge < mouse_x < pad_right_edge and pad_top_edge < mouse_y < pad_bottom_edge:
+            round_x = (mouse_x // 10) * 10
+            round_y = (mouse_y // 10) * 10
+            if (round_x, round_y) in dict_of_tiles:
+                color_picked = dict_of_tiles[(round_x, round_y)]
 
 
     if not mouse_pressed[0]:
