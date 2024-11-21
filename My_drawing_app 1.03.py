@@ -4,7 +4,8 @@ import os
 import datetime
 import tkinter as tk
 from tkinter import filedialog
-import math
+import json
+import zipfile
 
 # Initialize Pygame
 pygame.init()
@@ -86,18 +87,52 @@ brown_color_button = Button(screen_width-150, screen_height-420, 120, 50, 'BROWN
 save_button = Button(20, screen_height-70, 120, 50, 'SAVE')
 load_button = Button(160, screen_height-70, 120, 50, 'LOAD')
 
-def load_image():
-    global loaded_image
-    # Open file dialog to choose an image file
+def save_image_and_data(image_surface, dict_of_tiles, filename):
+    # Save the image as a temporary file
+    image_filename = filename
+    pygame.image.save(image_surface, image_filename)
+
+    # Save the dictionary as JSON
+    json_ready_dict = {str(key): value for key, value in dict_of_tiles.items()}
+    json_filename = 'data.json'
+    with open(json_filename, 'w') as json_file:
+        json.dump(json_ready_dict, json_file)
+
+    # Add both files to a zip archive
+    with zipfile.ZipFile(filename, 'w') as zipf:
+        zipf.write(image_filename)
+        zipf.write(json_filename)
+
+    # Clean up temporary files
+    os.remove(image_filename)
+    os.remove(json_filename)
+
+def load_dict_of_tiles():
+    global dict_of_tiles
     file_path = filedialog.askopenfilename(
-        title='Select an Image',
-        filetypes=[('Image Files', "*.png;*.jpg;*.jpeg;*.bmp;*.gif")]
+        title = 'Select a ZIP file from containing a JSON file',
+        filetypes = [('ZIP Files', "*.zip")]
     )
     if file_path: # if a file was selected
         if os.path.exists(file_path):
-            loaded_image = pygame.image.load(file_path)
-        else:
-            print(f'file "{file_path}" not found.')
+            try:
+                # Open the ZIP file
+                with zipfile.ZipFile(file_path, 'r') as zipf:
+                    # Find the first JSON file in the ZIP archive
+                    json_files = [name for name in zipf.namelist() if name.endswith('.json')]
+                    if not json_files:
+                        print('No JSON file found in the ZIP archive')
+                        return
+                    
+                    # Extract and load the JSON file
+                    with zipf.open(json_files[0]) as json_file:
+                        json_ready_dict = json.load(json_file)
+
+                # Convert string keys back to tuples
+                dict_of_tiles = {eval(key): value for key,value in json_ready_dict.items()}
+                print('Dictionary successfully loaded!')
+            except Exception as e:
+                print(f'An error occurred: {e}')
 
 
 # define a color_grid
@@ -137,20 +172,19 @@ def draw_color_grid():
 def find_all_tiles(tiles_to_replace, dict_of_tiles, color_to_replace, new_color, tiles_checked=[]):
     tile_added = False
     for tile in tiles_to_replace:
-        # check for each of the four adjacent tiles:
-        top_tile = (tile[0], tile[1] - 10)
-        bottom_tile = (tile[0], tile[1] + 10)
-        left_tile = (tile[0] - 10, tile[1])
-        right_tile = (tile[0] + 10, tile[1])
-        adj_tiles = [top_tile, bottom_tile, left_tile, right_tile]
-        for adj_tile in adj_tiles:
-            if adj_tile in tiles_checked:
-                continue
-            elif adj_tile in dict_of_tiles and dict_of_tiles[adj_tile] == color_to_replace:
-                tiles_to_replace.append(adj_tile)
-                tile_added = True
-            tiles_checked.append(adj_tile)
-        
+        if tile not in tiles_checked:
+            # check for each of the four adjacent tiles:
+            top_tile = (tile[0], tile[1] - 10)
+            bottom_tile = (tile[0], tile[1] + 10)
+            left_tile = (tile[0] - 10, tile[1])
+            right_tile = (tile[0] + 10, tile[1])
+            adj_tiles = [top_tile, bottom_tile, left_tile, right_tile]
+            for adj_tile in adj_tiles:
+                if adj_tile in dict_of_tiles and dict_of_tiles[adj_tile] == color_to_replace:
+                    tiles_to_replace.append(adj_tile)
+                    tile_added = True
+            tiles_checked.append(tile)
+    
         # Recurse if an adjacent tile was found with the same color
         if tile_added == True:
             find_all_tiles(tiles_to_replace, dict_of_tiles, color_to_replace, new_color, tiles_checked)
@@ -159,7 +193,7 @@ def find_all_tiles(tiles_to_replace, dict_of_tiles, color_to_replace, new_color,
             for tile in tiles_to_replace:
                 dict_of_tiles[tile] = new_color
 
-                
+  
 def art_maker():
     global button_clicked, draw_tile_ready, dict_of_tiles, color_picked, timestamp, draw_mode
     pygame.draw.line(screen, (255,255,255), (pad_left_edge, pad_top_edge), (pad_right_edge, pad_top_edge), 1)
@@ -179,9 +213,11 @@ def art_maker():
     brown_color_button.draw()
     
     save_button.draw()
-    filename = f"screenshot_from_drawing_pad_{timestamp}.png"
-
     load_button.draw()
+
+
+    filename = f"screenshot_from_drawing_pad_{timestamp}.zip"
+
 
     if loaded_image:
         screen.blit(loaded_image, (pad_left_edge, pad_top_edge))
@@ -240,12 +276,6 @@ def art_maker():
             color_picked = (0,0,255)
             print("You selected Blue")
             button_clicked = True  
-        '''      
-        if erase_button.is_over(pygame.mouse.get_pos()):
-            color_picked = (0,0,0)
-            print("You selected 'Eraser'")
-            button_clicked = True    
-        '''
         if yellow_color_button.is_over(pygame.mouse.get_pos()):
             color_picked = (255,255,0)
             print("You selected 'Yellow'")
@@ -261,18 +291,16 @@ def art_maker():
                 print("You selected", str(button.color))
                 button_clicked = True
 
+        if load_button.is_over(pygame.mouse.get_pos()):
+            print('You selected "LOAD_DICT"')
+            load_dict_of_tiles()
+
         if save_button.is_over(pygame.mouse.get_pos()):
-            #custom_filename = input('Enter the filename (with .pgn extennsion):')
             capture_surface = pygame.Surface((drawing_pad.width, drawing_pad.height))
             capture_surface.blit(screen, (0,0), drawing_pad)
-            pygame.image.save(capture_surface, filename)
-            print("Image saved")
-            button_clicked = True   
-
-        if load_button.is_over(pygame.mouse.get_pos()):
-            print("You selected 'LOAD'")
-            load_image()
-            button_clicked = True   
+            save_image_and_data(capture_surface, dict_of_tiles, filename)
+            print('Saved zip file')
+            button_clicked = True
 
     if draw_mode == 'dot':
         if mouse_pressed[0] and not button_clicked:
@@ -302,6 +330,7 @@ def art_maker():
                     del dict_of_tiles[(round_x, round_y)]
                     print(dict_of_tiles)
     elif draw_mode == 'fill' and mouse_pressed[0] and not button_clicked:
+        button_clicked = True
         replacement_color = color_picked
         mouse_x, mouse_y = pygame.mouse.get_pos()
         if pad_left_edge < mouse_x < pad_right_edge and pad_top_edge < mouse_y < pad_bottom_edge:
@@ -310,7 +339,8 @@ def art_maker():
             if (round_x, round_y) not in dict_of_tiles:
                 dict_of_tiles[(round_x, round_y)] = None
             tiles_to_replace = [(round_x, round_y)]
-            find_all_tiles(tiles_to_replace, dict_of_tiles, dict_of_tiles[(round_x, round_y)], replacement_color, [(round_x, round_y)])
+            find_all_tiles(tiles_to_replace, dict_of_tiles, dict_of_tiles[(round_x, round_y)], replacement_color, tiles_checked=[])
+                
 
 
 
